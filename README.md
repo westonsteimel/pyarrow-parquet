@@ -5,8 +5,16 @@ Useful for fitting into AWS Lambda functions.
 
 ## Building
 
-Produces wheel files in dist/
+From the root of this repository, run the following, substituting the variables you want to build for:
 
 ```bash
-PYTHON_VERSION=3.6 ARROW_VERSION=0.13.0 ./prepare_wheel.sh
+docker run --rm -it \
+    --env ARROW_VERSION="0.13.0" \
+    --env PYTHON_VERSION="3.6" \
+    --env UNICODE_WIDTH=16 \
+    --shm-size=2g \
+    -v $PWD:/io \
+    quay.io/xhochy/arrow_manylinux1_x86_64_base:latest /io/prepare_wheel.sh
 ```
+
+Wheels will be output under dist/
