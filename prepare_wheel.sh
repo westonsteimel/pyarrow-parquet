@@ -10,6 +10,6 @@ tar -xvf arrow.tar.gz --strip 1
 cd python/manylinux1
 cp -r ./scripts /io
 ls /io
-/io/build_arrow.sh
+/io/manylinux1/build_arrow.sh
 rm -rf /io/scripts
 )
