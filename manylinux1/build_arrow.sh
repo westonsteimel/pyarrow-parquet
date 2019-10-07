@@ -17,11 +17,16 @@
 # specific language governing permissions and limitations
 # under the License.
 #
-# Usage:
-#   docker run --rm -v $PWD:/io arrow-base-x86_64 /io/build_arrow.sh
-
 # Build upon the scripts in https://github.com/matthew-brett/manylinux-builds
 # * Copyright (c) 2013-2016, Matt Terry and Matthew Brett (BSD 2-clause)
+#
+# Usage:
+#   either build:
+#     $ docker-compose build python-manylinux1
+#   or pull:
+#     $ docker-compose pull python-manylinux1
+#   an then run:
+#     $ docker-compose run -e PYTHON_VERSION=3.7 python-manylinux1
 
 source /multibuild/manylinux_utils.sh
 
@@ -79,7 +84,6 @@ mkdir -p "${ARROW_BUILD_DIR}"
 pushd "${ARROW_BUILD_DIR}"
 cmake -DCMAKE_BUILD_TYPE=Release \
     -DARROW_DEPENDENCY_SOURCE="SYSTEM" \
-    -DZLIB_ROOT=/usr/local \
     -DCMAKE_INSTALL_PREFIX=/arrow-dist \
     -DCMAKE_INSTALL_LIBDIR=lib \
     -DARROW_BUILD_TESTS=OFF \
@@ -103,6 +107,7 @@ cmake -DCMAKE_BUILD_TYPE=Release \
     -DOPENSSL_USE_STATIC_LIBS=ON \
     -DORC_SOURCE=BUNDLED \
     -GNinja /arrow/cpp
+ninja
 ninja install
 popd
 
@@ -140,13 +145,9 @@ else
 import sys
 import pyarrow
 import pyarrow.parquet
-
-if sys.version_info.major > 2:
-    import pyarrow.flight
-    import pyarrow.gandiva
   "
 
-  # More thorough testing happens outsite of the build to prevent
+  # More thorough testing happens outside of the build to prevent
   # packaging issues like ARROW-4372
   mv dist/*.tar.gz /io/dist
   mv repaired_wheels/*.whl /io/dist
