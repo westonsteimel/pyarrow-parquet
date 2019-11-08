@@ -41,7 +41,11 @@ cd /arrow/python
 # PyArrow build configuration
 export PYARROW_BUILD_TYPE='release'
 export PYARROW_CMAKE_GENERATOR='Ninja'
+
+# ARROW-6860: Disabling ORC in wheels until Protobuf static linking issues
+# across projects is resolved
 export PYARROW_WITH_ORC=0
+
 export PYARROW_WITH_PARQUET=1
 export PYARROW_WITH_PLASMA=0
 export PYARROW_BUNDLE_ARROW_CPP=1
@@ -62,18 +66,10 @@ PIP="${CPYTHON_PATH}/bin/pip"
 # Put our Python first to avoid picking up an antiquated Python from CMake
 PATH="${CPYTHON_PATH}/bin:${PATH}"
 
-if [ "${PYTHON_VERSION}" != "2.7" ]; then
-  export PYARROW_WITH_FLIGHT=0
-  export PYARROW_WITH_GANDIVA=0
-  export BUILD_ARROW_FLIGHT=OFF
-  export BUILD_ARROW_GANDIVA=OFF
-else
-  # Flight and Gandiva are not supported on Python 2.7
-  export PYARROW_WITH_FLIGHT=0
-  export PYARROW_WITH_GANDIVA=0
-  export BUILD_ARROW_FLIGHT=OFF
-  export BUILD_ARROW_GANDIVA=OFF
-fi
+export PYARROW_WITH_FLIGHT=0
+export PYARROW_WITH_GANDIVA=0
+export BUILD_ARROW_FLIGHT=OFF
+export BUILD_ARROW_GANDIVA=OFF
 
 # ARROW-3052(wesm): ORC is being bundled until it can be added to the
 # manylinux1 image
@@ -98,14 +94,19 @@ cmake -DCMAKE_BUILD_TYPE=Release \
     -DARROW_PLASMA=OFF \
     -DARROW_TENSORFLOW=OFF \
     -DARROW_ORC=OFF \
-    -DARROW_WITH_BZ2=ON \
+    -DORC_SOURCE=BUNDLED \
+    -DARROW_WITH_BZ2=OFF \
+    -DARROW_WITH_ZLIB=OFF \
+    -DARROW_WITH_ZSTD=OFF \
+    -DARROW_WITH_LZ4=OFF \
+    -DARROW_WITH_SNAPPY=ON \
+    -DARROW_WITH_BROTLI=OFF \
     -DARROW_FLIGHT=${BUILD_ARROW_FLIGHT} \
     -DARROW_GANDIVA=${BUILD_ARROW_GANDIVA} \
     -DARROW_GANDIVA_JAVA=OFF \
     -DBoost_NAMESPACE=arrow_boost \
     -DBOOST_ROOT=/arrow_boost_dist \
     -DOPENSSL_USE_STATIC_LIBS=ON \
-    -DORC_SOURCE=BUNDLED \
     -GNinja /arrow/cpp
 ninja
 ninja install
