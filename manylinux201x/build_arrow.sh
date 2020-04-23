@@ -50,25 +50,29 @@ export PYARROW_WITH_HDFS=0
 export PYARROW_WITH_PARQUET=1
 export PYARROW_WITH_PLASMA=0
 export PYARROW_BUNDLE_ARROW_CPP=1
-export PYARROW_BUNDLE_BOOST=1
-export PYARROW_BOOST_NAMESPACE=arrow_boost
+# Boost is only a compile-time dependency for wheels => no need to bundle .so's
+export PYARROW_BUNDLE_BOOST=0
 export PKG_CONFIG_PATH=/usr/lib/pkgconfig:/arrow-dist/lib/pkgconfig
 
-export PYARROW_CMAKE_OPTIONS='-DBoost_NAMESPACE=arrow_boost -DBOOST_ROOT=/arrow_boost_dist'
 # Ensure the target directory exists
 mkdir -p /io/dist
 
-# Must pass PYTHON_VERSION and UNICODE_WIDTH env variables
-# possible values are: 2.7,16 2.7,32 3.5,16 3.6,16 3.7,16 3.8,16
-# Note that manylinux2014 does not support Python 2.7
+# Must pass PYTHON_VERSION env variable
+# possible values are: 3.5 3.6 3.7 3.8
 
+UNICODE_WIDTH=32  # Dummy value, irrelevant for Python 3
 CPYTHON_PATH="$(cpython_path ${PYTHON_VERSION} ${UNICODE_WIDTH})"
 PYTHON_INTERPRETER="${CPYTHON_PATH}/bin/python"
 PIP="${CPYTHON_PATH}/bin/pip"
 PATH="${PATH}:${CPYTHON_PATH}"
 
+# XXX The Docker image doesn't include Python libs, this confuses CMake
+# (https://github.com/pypa/manylinux/issues/484)
+py_libname=$(${PYTHON_INTERPRETER} -c "import sysconfig; print(sysconfig.get_config_var('LDLIBRARY'))")
+touch ${CPYTHON_PATH}/lib/${py_libname}
+
 echo "=== (${PYTHON_VERSION}) Install the wheel build dependencies ==="
-$PIP install -r requirements-wheel.txt
+$PIP install -r requirements-wheel-build.txt
 
 export PYARROW_WITH_DATASET=1
 export PYARROW_WITH_FLIGHT=0
@@ -76,12 +80,15 @@ export PYARROW_WITH_GANDIVA=0
 export BUILD_ARROW_DATASET=ON
 export BUILD_ARROW_FLIGHT=OFF
 export BUILD_ARROW_GANDIVA=OFF
+export ARROW_NO_DEPRECATED_API=ON
+export ARROW_CSV=OFF
+export ARROW_JSON=OFF    
 
 # ARROW-3052(wesm): ORC is being bundled until it can be added to the
 # manylinux1 image
 
 echo "=== (${PYTHON_VERSION}) Building Arrow C++ libraries ==="
-ARROW_BUILD_DIR=/tmp/build-PY${PYTHON_VERSION}-${UNICODE_WIDTH}
+ARROW_BUILD_DIR=/tmp/build-PY${PYTHON_VERSION}
 mkdir -p "${ARROW_BUILD_DIR}"
 pushd "${ARROW_BUILD_DIR}"
 PATH="${CPYTHON_PATH}/bin:${PATH}" cmake \
@@ -109,6 +116,9 @@ PATH="${CPYTHON_PATH}/bin:${PATH}" cmake \
     -DARROW_WITH_SNAPPY=ON \
     -DARROW_WITH_ZLIB=ON \
     -DARROW_WITH_ZSTD=ON \
+    -DARROW_NO_DEPRECATED_API=${ARROW_NO_DEPRECATED_API} \
+    -DARROW_CSV=${ARROW_CSV} \
+    -DARROW_JSON=${ARROW_JSON} \
     -DBoost_NAMESPACE=arrow_boost \
     -DBOOST_ROOT=/arrow_boost_dist \
     -DCMAKE_BUILD_TYPE=Release \
@@ -132,10 +142,10 @@ rm -rf repaired_wheels/
 find -name "*.so" -delete
 
 echo "=== (${PYTHON_VERSION}) Building wheel ==="
-PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER setup.py build_ext --inplace
-PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER setup.py bdist_wheel
+PATH="${CPYTHON_PATH}/bin:$PATH" $PYTHON_INTERPRETER setup.py build_ext --inplace
+PATH="${CPYTHON_PATH}/bin:$PATH" $PYTHON_INTERPRETER setup.py bdist_wheel
 # Source distribution is used for debian pyarrow packages.
-PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER setup.py sdist
+PATH="${CPYTHON_PATH}/bin:$PATH" $PYTHON_INTERPRETER setup.py sdist
 
 echo "=== (${PYTHON_VERSION}) Tag the wheel with manylinux201x ==="
 mkdir -p repaired_wheels/
@@ -146,13 +156,10 @@ $PIP install repaired_wheels/*.whl
 
 # Test that the modules are importable
 $PYTHON_INTERPRETER -c "
-import sys
 import pyarrow
-import pyarrow.parquet
+import pyarrow.dataset
 import pyarrow.fs
-
-if sys.version_info.major > 2:
-    import pyarrow.dataset
+import pyarrow.parquet
 "
 
 # More thorough testing happens outside of the build to prevent

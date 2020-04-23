@@ -57,17 +57,23 @@ export PYARROW_CMAKE_OPTIONS='-DTHRIFT_HOME=/usr -DBoost_NAMESPACE=arrow_boost -
 # Ensure the target directory exists
 mkdir -p /io/dist
 
-# Must pass PYTHON_VERSION and UNICODE_WIDTH env variables
-# possible values are: 2.7,16 2.7,32 3.5,16 3.6,16 3.7,16 3.8,16
+# Must pass PYTHON_VERSION env variable
+# possible values are: 3.5 3.6 3.7 3.8
 
+UNICODE_WIDTH=32  # Dummy value, irrelevant for Python 3
 CPYTHON_PATH="$(cpython_path ${PYTHON_VERSION} ${UNICODE_WIDTH})"
 PYTHON_INTERPRETER="${CPYTHON_PATH}/bin/python"
 PIP="${CPYTHON_PATH}/bin/pip"
 # Put our Python first to avoid picking up an antiquated Python from CMake
 PATH="${CPYTHON_PATH}/bin:${PATH}"
 
+# XXX The Docker image doesn't include Python libs, this confuses CMake
+# (https://github.com/pypa/manylinux/issues/484)
+py_libname=$(${PYTHON_INTERPRETER} -c "import sysconfig; print(sysconfig.get_config_var('LDLIBRARY'))")
+touch ${CPYTHON_PATH}/lib/${py_libname}
+
 echo "=== (${PYTHON_VERSION}) Install the wheel build dependencies ==="
-$PIP install -r requirements-wheel.txt
+$PIP install -r requirements-wheel-build.txt
 
 export PYARROW_WITH_DATASET=1
 export PYARROW_WITH_FLIGHT=0
@@ -80,7 +86,7 @@ export BUILD_ARROW_GANDIVA=OFF
 # manylinux1 image
 
 echo "=== (${PYTHON_VERSION}) Building Arrow C++ libraries ==="
-ARROW_BUILD_DIR=/tmp/build-PY${PYTHON_VERSION}-${UNICODE_WIDTH}
+ARROW_BUILD_DIR=/tmp/build-PY${PYTHON_VERSION}
 mkdir -p "${ARROW_BUILD_DIR}"
 pushd "${ARROW_BUILD_DIR}"
 cmake \
@@ -150,11 +156,9 @@ else
   $PYTHON_INTERPRETER -c "
 import sys
 import pyarrow
-import pyarrow.parquet
+import pyarrow.dataset
 import pyarrow.fs
-
-if sys.version_info.major > 2:
-    import pyarrow.dataset
+import pyarrow.parquet
   "
 
   # More thorough testing happens outside of the build to prevent
