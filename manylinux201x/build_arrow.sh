@@ -48,7 +48,7 @@ export PYARROW_CMAKE_GENERATOR='Ninja'
 export PYARROW_WITH_ORC=0
 export PYARROW_WITH_HDFS=0
 export PYARROW_WITH_PARQUET=1
-export PYARROW_WITH_PLASMA=0
+export PYARROW_WITH_PLASMA=1
 export PYARROW_BUNDLE_ARROW_CPP=1
 # Boost is only a compile-time dependency for wheels => no need to bundle .so's
 export PYARROW_BUNDLE_BOOST=0
@@ -75,10 +75,10 @@ echo "=== (${PYTHON_VERSION}) Install the wheel build dependencies ==="
 $PIP install -r requirements-wheel-build.txt
 
 export PYARROW_WITH_DATASET=1
-export PYARROW_WITH_FLIGHT=0
+export PYARROW_WITH_FLIGHT=1
 export PYARROW_WITH_GANDIVA=0
 export BUILD_ARROW_DATASET=ON
-export BUILD_ARROW_FLIGHT=OFF
+export BUILD_ARROW_FLIGHT=ON
 export BUILD_ARROW_GANDIVA=OFF
 export ARROW_NO_DEPRECATED_API=ON
 export ARROW_CSV=OFF
@@ -106,7 +106,7 @@ PATH="${CPYTHON_PATH}/bin:${PATH}" cmake \
     -DARROW_JEMALLOC=ON \
     -DARROW_ORC=OFF \
     -DARROW_PARQUET=ON \
-    -DARROW_PLASMA=OFF \
+    -DARROW_PLASMA=ON \
     -DARROW_PYTHON=ON \
     -DARROW_RPATH_ORIGIN=ON \
     -DARROW_TENSORFLOW=OFF \
